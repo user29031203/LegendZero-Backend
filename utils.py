@@ -4,10 +4,11 @@ import json
 import time
 import getpass
 from pathlib import Path
+import roblox_manager
 
 MAX_DWEETS_PER_THING = 1
 REST_TIMEOUT = 60*30
-STATE_FILE_NAME = "LegendZero-State.txt"
+STATE_FILE_NAME = "LegendZero_State.txt"
 
 # ---------- FILE HELPERS ----------
 
