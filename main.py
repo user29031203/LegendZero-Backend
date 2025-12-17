@@ -3,11 +3,14 @@ from datetime import datetime, timezone
 from threading import Lock
 from flask import abort
 import utils
+import requests  # <--- NEW IMPORT REQUIRED
+
 
 app = Flask(__name__)
 lock = Lock()
 DWEET_DB_FILE = "dweets_db.json"
 POINTS_DB_FILE = "points_db.json"
+DEFAULT_PLACE_ID = "12360882630"
 
 @app.route("/dweet/for/<string:thing>", methods=["GET"])
 def dweet_for(thing: str):
@@ -66,7 +69,7 @@ def get_latest_dweet(thing: str):
     return jsonify(response), 200
 
 @app.route("/set/<string:alt_name>/points/<int:points>", methods=["GET"])
-def managePoints(alt_name: str, points: int):
+def manage_points(alt_name: str, points: int):
     with lock:
         db = utils.read_db(POINTS_DB_FILE)
         alts = db.setdefault("alts", {})
@@ -102,7 +105,7 @@ def managePoints(alt_name: str, points: int):
 
 
 @app.route("/get/<string:alt_name>/points") 
-def showPoints(alt_name: str):
+def show_points(alt_name: str):
     with lock:
         db = utils.read_db(POINTS_DB_FILE)
         alts = db.setdefault("alts", {})
@@ -110,6 +113,57 @@ def showPoints(alt_name: str):
         alt = alts[alt_name]
     
     return jsonify(alt), 200
+
+
+@app.route("/get/serverdata/lowest/<int:limit>")
+def get_server_jobid(limit: int):
+    # Roblox API validation: limit must be 10, 25, 50, or 100.
+    # If the user asks for 5 or 1, we default to 10 to prevent API errors.
+    valid_limits = [10, 25, 50, 100]
+    if limit not in valid_limits:
+        limit = 10
+
+    url = f"https://games.roblox.com/v1/games/{DEFAULT_PLACE_ID}/servers/Public"
+
+    params = {
+        "sortOrder": "Asc",  # Ascending = Lowest player count first
+        "limit": limit
+    }
+
+    try:
+        # Roblox sometimes blocks requests without a User-Agent
+        headers = {"User-Agent": "RobloxFlaskBackend/1.0"}
+        
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status() # Raise error for 4xx/5xx responses
+        
+        data = response.json()
+        server_list = data.get("data", [])
+
+        if not server_list:
+            return jsonify({
+                "success": False, 
+                "message": "No servers found for this game."
+            }), 404
+
+        # Because we used sortOrder=Asc, the first item (index 0) 
+        # is the server with the lowest player count.
+        lowest_server = server_list[0]
+
+        return jsonify({
+            "success": True,
+            "jobId": lowest_server["id"],
+            "playing": lowest_server["playing"],
+            "maxPlayers": lowest_server["maxPlayers"],
+            "ping": lowest_server["ping"],
+            "fps": lowest_server["fps"]
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "success": False, 
+            "error": str(e)
+        }), 500
 
 @app.route("/")
 def index():
