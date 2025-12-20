@@ -16,7 +16,7 @@ threads = []
 def monitor_json_endpoint(
     url,
     interval=60,
-    max_idle_minutes=4,
+    max_idle_minutes=2,
     timeout=3,
 ):
     unchanged_minutes = 0
@@ -38,7 +38,7 @@ def monitor_json_endpoint(
             last_snapshot = current_snapshot
 
         elif current_snapshot != last_snapshot:
-            #print("[monitor] JSON changed..")
+            print("[monitor] JSON changed..")
             last_snapshot = current_snapshot
             unchanged_minutes = 0
 
@@ -48,7 +48,7 @@ def monitor_json_endpoint(
 
         if unchanged_minutes >= max_idle_minutes:
             if WARNING_ENABLED.is_set():
-                print("[monitor] JSON unchanged for 5 minutes !")
+                print(f"[monitor] JSON unchanged for {timeout} minutes !")
                 utils.reset_roblox(30)
             unchanged_minutes = 0
 
